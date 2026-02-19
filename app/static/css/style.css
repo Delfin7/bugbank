@@ -1,0 +1,350 @@
+/* BugBank Custom Styles */
+
+/* Layout */
+body {
+    padding-top: 56px;
+}
+
+.sidebar {
+    height: calc(100vh - 56px);
+    overflow-y: auto;
+}
+
+/* Cookie banner */
+.cookie-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #333;
+    color: white;
+    z-index: 1050;
+}
+
+/* Progress steps for wizard */
+.progress-steps {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    margin-bottom: 30px;
+}
+
+.progress-steps::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 10%;
+    right: 10%;
+    height: 2px;
+    background: #dee2e6;
+    z-index: 0;
+}
+
+.step {
+    text-align: center;
+    z-index: 1;
+    background: white;
+    padding: 0 10px;
+}
+
+.step-circle {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #dee2e6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 10px;
+    font-weight: bold;
+    color: #6c757d;
+}
+
+.step.active .step-circle {
+    background: #0d6efd;
+    color: white;
+}
+
+.step.completed .step-circle {
+    background: #198754;
+    color: white;
+}
+
+.step-label {
+    font-size: 14px;
+    color: #6c757d;
+}
+
+.step.active .step-label {
+    color: #0d6efd;
+    font-weight: bold;
+}
+
+/* Autocomplete dropdown */
+.autocomplete-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 1000;
+    display: none;
+}
+
+.autocomplete-item {
+    padding: 10px 15px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.autocomplete-item:hover {
+    background: #f8f9fa;
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+/* Credit card visual */
+.credit-card-visual {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 15px;
+    padding: 20px;
+    color: white;
+    position: relative;
+    min-height: 180px;
+}
+
+.credit-card-visual.visa {
+    background: linear-gradient(135deg, #1a1f71 0%, #2d3494 100%);
+}
+
+.credit-card-visual.mastercard {
+    background: linear-gradient(135deg, #f79e1b 0%, #eb001b 100%);
+}
+
+.credit-card-visual.blocked {
+    filter: grayscale(100%);
+}
+
+.blocked-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0,0,0,0.7);
+    padding: 10px 20px;
+    border-radius: 5px;
+    font-weight: bold;
+}
+
+.card-brand-logo {
+    text-align: right;
+    margin-bottom: 20px;
+}
+
+.card-number {
+    font-family: 'Courier New', monospace;
+    font-size: 18px;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+    transition: opacity 0.3s;
+}
+
+/* Context menu */
+.context-menu {
+    position: absolute;
+    z-index: 1000;
+    display: none;
+}
+
+/* Hover dropdown menu */
+.dropdown-hover-menu {
+    position: relative;
+}
+
+.dropdown-hover-content {
+    display: none;
+    position: absolute;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    min-width: 200px;
+    z-index: 1000;
+    margin-top: 5px;
+}
+
+.dropdown-hover-menu:hover .dropdown-hover-content {
+    display: block;
+}
+
+.dropdown-hover-content a {
+    display: block;
+    padding: 10px 15px;
+    color: #333;
+    text-decoration: none;
+}
+
+.dropdown-hover-content a:hover {
+    background: #f8f9fa;
+}
+
+/* Chat widget */
+.chat-toggle-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #0d6efd;
+    color: white;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    z-index: 1000;
+    transition: transform 0.2s;
+}
+
+.chat-toggle-btn:hover {
+    transform: scale(1.1);
+}
+
+.chat-widget-container {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    width: 350px;
+    height: 400px;
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    z-index: 1000;
+    overflow: hidden;
+}
+
+.chat-widget-header {
+    background: #0d6efd;
+    color: white;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-iframe {
+    width: 100%;
+    height: calc(100% - 50px);
+    border: none;
+}
+
+/* Loading overlay */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+/* Avatar preview */
+.avatar-preview {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.avatar-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Drag and drop */
+.list-group-item[draggable="true"] {
+    cursor: move;
+}
+
+.list-group-item.dragging {
+    opacity: 0.5;
+    background: #e9ecef;
+}
+
+.drag-handle {
+    cursor: grab;
+}
+
+/* Tooltip triggers */
+.tooltip-trigger {
+    cursor: help;
+}
+
+/* Card hover effect */
+.card-hover {
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.card-hover:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+/* Transaction row animation for stale element testing */
+.transaction-item {
+    transition: background-color 0.3s;
+}
+
+.transaction-item.refreshing {
+    background-color: #fff3cd;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .sidebar {
+        position: fixed;
+        top: 56px;
+        left: -100%;
+        width: 250px;
+        transition: left 0.3s;
+        z-index: 1040;
+        background: white;
+    }
+    
+    .sidebar.show {
+        left: 0;
+    }
+    
+    .chat-widget-container {
+        width: 100%;
+        right: 0;
+        bottom: 0;
+        border-radius: 0;
+    }
+}
+
+/* Print styles */
+@media print {
+    .sidebar, .navbar, .chat-toggle-btn, .chat-widget-container {
+        display: none !important;
+    }
+    
+    main {
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+}

@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Panel główny - BugBank{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-speedometer2 me-2"></i>Panel główny
+    </h1>
+    <div class="text-muted">
+        Witaj, <strong>{{ current_user.first_name }}</strong>! 
+        <span id="current-datetime"></span>
+    </div>
+</div>
+
+<!-- Balance cards - loaded via AJAX with delay -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 opacity-75">Dostępne środki</h6>
+                <div id="total-balance-container">
+                    <div class="placeholder-glow">
+                        <span class="placeholder col-8 bg-light"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Liczba kont</h6>
+                <h3 id="accounts-count" class="card-title">
+                    <span class="placeholder col-3"></span>
+                </h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-subtitle mb-2 text-muted">Nieprzeczytane wiadomości</h6>
+                <h3 class="card-title">
+                    <a href="{{ url_for('messages.inbox') }}" class="text-decoration-none">
+                        {{ unread_messages }}
+                    </a>
+                </h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-lightning me-2"></i>Szybkie akcje
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('transfers.new_transfer') }}" class="btn btn-outline-primary w-100" id="{{ generate_random_id('btn_quick_transfer') }}">
+                            <i class="bi bi-arrow-left-right me-2"></i>Nowy przelew
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('accounts.list_accounts') }}" class="btn btn-outline-secondary w-100" id="{{ generate_random_id('btn_quick_accounts') }}">
+                            <i class="bi bi-wallet2 me-2"></i>Moje konta
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('cards.manage_cards') }}" class="btn btn-outline-secondary w-100" id="{{ generate_random_id('btn_quick_cards') }}">
+                            <i class="bi bi-credit-card me-2"></i>Karty
+                        </a>
+                    </div>
+                    <div class="col-md-3 mb-2">
+                        <a href="{{ url_for('messages.inbox') }}" class="btn btn-outline-secondary w-100" id="{{ generate_random_id('btn_quick_messages') }}">
+                            <i class="bi bi-envelope me-2"></i>Wiadomości
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Accounts list -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-wallet2 me-2"></i>Moje konta</span>
+                <a href="{{ url_for('accounts.list_accounts') }}" class="btn btn-sm btn-link">Zobacz wszystkie</a>
+            </div>
+            <div class="card-body" id="accounts-list-container">
+                <!-- Loaded via AJAX -->
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Ładowanie...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Ładowanie kont...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent transactions - with refresh that causes stale elements -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-clock-history me-2"></i>Ostatnie transakcje</span>
+                <button class="btn btn-sm btn-outline-primary" id="refresh-transactions-btn" title="Odśwież">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+            </div>
+            <div class="card-body" id="transactions-list-container">
+                <!-- Loaded via AJAX -->
+                <div class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Ładowanie...</span>
+                    </div>
+                    <p class="mt-2 text-muted">Ładowanie transakcji...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Tooltip elements (for hover testing) -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-2"></i>Informacje
+            </div>
+            <div class="card-body">
+                <p>
+                    Najedź kursorem na poniższe elementy, aby zobaczyć szczegóły:
+                </p>
+                <div class="d-flex gap-3">
+                    <span class="badge bg-primary tooltip-trigger" 
+                          data-bs-toggle="tooltip" 
+                          data-bs-placement="top" 
+                          title="Twój aktualny poziom konta to: Premium"
+                          id="tooltip-account-level">
+                        Poziom konta
+                    </span>
+                    <span class="badge bg-success tooltip-trigger" 
+                          data-bs-toggle="tooltip" 
+                          data-bs-placement="top" 
+                          title="Cashback za ten miesiąc: 45,50 PLN"
+                          id="tooltip-cashback">
+                        Cashback
+                    </span>
+                    <span class="badge bg-info tooltip-trigger" 
+                          data-bs-toggle="tooltip" 
+                          data-bs-placement="top" 
+                          title="Punkty lojalnościowe: 1250 pkt"
+                          id="tooltip-points">
+                        Punkty
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltips.forEach(el => new bootstrap.Tooltip(el));
+    
+    // Update current datetime
+    function updateDateTime() {
+        const now = new Date();
+        const options = { 
+            weekday: 'long', 
+            year: 'numeric', 
+            month: 'long', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        };
+        document.getElementById('current-datetime').textContent = now.toLocaleDateString('pl-PL', options);
+    }
+    updateDateTime();
+    setInterval(updateDateTime, 60000);
+    
+    // Load balance (with intentional delay - AJAX wait challenge)
+    function loadBalance() {
+        fetch('/api/dashboard/balance')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('total-balance-container').innerHTML = 
+                    `<h2 class="card-title mb-0">${data.total_balance}</h2>`;
+                document.getElementById('accounts-count').textContent = data.accounts_count;
+                
+                // Update accounts list
+                const accountsList = document.getElementById('accounts-list-container');
+                if (data.accounts.length === 0) {
+                    accountsList.innerHTML = '<p class="text-muted">Brak kont do wyświetlenia</p>';
+                } else {
+                    accountsList.innerHTML = data.accounts.map(acc => `
+                        <div class="d-flex justify-content-between align-items-center border-bottom py-2 account-item" 
+                             data-account-id="${acc.id}">
+                            <div>
+                                <strong>${acc.name}</strong>
+                                <br>
+                                <small class="text-muted">${acc.type}</small>
+                            </div>
+                            <div class="text-end">
+                                <strong>${acc.balance}</strong>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            })
+            .catch(error => {
+                document.getElementById('total-balance-container').innerHTML = 
+                    '<span class="text-danger">Błąd ładowania</span>';
+            });
+    }
+    
+    // Load transactions (with stale element challenge)
+    function loadTransactions() {
+        const container = document.getElementById('transactions-list-container');
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Ładowanie...</span>
+                </div>
+            </div>
+        `;
+        
+        fetch('/api/dashboard/recent-transactions')
+            .then(response => response.json())
+            .then(data => {
+                if (data.transactions.length === 0) {
+                    container.innerHTML = '<p class="text-muted">Brak transakcji</p>';
+                } else {
+                    container.innerHTML = data.transactions.map((t, index) => `
+                        <div class="d-flex justify-content-between align-items-center border-bottom py-2 transaction-item"
+                             data-transaction-id="${t.id}"
+                             id="transaction-row-${index}">
+                            <div>
+                                <strong>${t.title}</strong>
+                                <br>
+                                <small class="text-muted">${t.date}</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="${t.type === 'deposit' ? 'text-success' : 'text-danger'}">${t.amount}</span>
+                                <br>
+                                <span class="badge bg-${t.status === 'completed' ? 'success' : 'warning'}">${t.status === 'completed' ? 'Zrealizowany' : 'Oczekujący'}</span>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            })
+            .catch(error => {
+                container.innerHTML = '<span class="text-danger">Błąd ładowania transakcji</span>';
+            });
+    }
+    
+    // Initial load
+    loadBalance();
+    loadTransactions();
+    
+    // Refresh button - causes stale elements!
+    document.getElementById('refresh-transactions-btn').addEventListener('click', function() {
+        loadTransactions();
+    });
+    
+    // Auto-refresh transactions every 30 seconds (stale element challenge)
+    setInterval(loadTransactions, 30000);
+});
+</script>
+{% endblock %}

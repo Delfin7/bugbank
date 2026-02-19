@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}{{ account.account_name }} - BugBank{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('accounts.list_accounts') }}">Konta</a></li>
+        <li class="breadcrumb-item active">{{ account.account_name }}</li>
+    </ol>
+</nav>
+
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-wallet2 me-2"></i>{{ account.account_name }}
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Numer konta:</strong></p>
+                        <code class="fs-6">{{ account.formatted_account_number }}</code>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Saldo:</strong></p>
+                        <h3 class="text-primary">{{ account.formatted_balance }}</h3>
+                    </div>
+                </div>
+                <hr>
+                <div class="row">
+                    <div class="col-md-4">
+                        <p class="mb-1 text-muted">Typ konta</p>
+                        <p>{{ 'Osobiste' if account.account_type == 'checking' else 'Oszczędnościowe' if account.account_type == 'savings' else 'Firmowe' }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <p class="mb-1 text-muted">Waluta</p>
+                        <p>{{ account.currency }}</p>
+                    </div>
+                    <div class="col-md-4">
+                        <p class="mb-1 text-muted">Data otwarcia</p>
+                        <p>{{ account.created_at.strftime('%d.%m.%Y') }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">Szybkie akcje</div>
+            <div class="card-body">
+                <a href="{{ url_for('transfers.new_transfer') }}?from={{ account.id }}" class="btn btn-primary w-100 mb-2">
+                    <i class="bi bi-arrow-left-right me-2"></i>Wykonaj przelew
+                </a>
+                <button class="btn btn-outline-secondary w-100" onclick="window.print()">
+                    <i class="bi bi-printer me-2"></i>Drukuj wyciąg
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction history -->
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-clock-history me-2"></i>Historia transakcji</span>
+        <button class="btn btn-sm btn-outline-primary" id="refresh-btn">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table" id="transactions-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Tytuł</th>
+                        <th>Odbiorca</th>
+                        <th>Kwota</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="transactions-tbody">
+                    <tr>
+                        <td colspan="5" class="text-center py-4">
+                            <div class="spinner-border text-primary"></div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <nav id="transactions-pagination"></nav>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const accountId = {{ account.id }};
+    
+    function loadTransactions(page = 1) {
+        const tbody = document.getElementById('transactions-tbody');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border text-primary"></div></td></tr>';
+        
+        fetch(`/api/accounts/${accountId}/transactions?page=${page}&per_page=10`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.transactions.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-muted">Brak transakcji</td></tr>';
+                } else {
+                    tbody.innerHTML = data.transactions.map(t => `
+                        <tr>
+                            <td>${t.date}</td>
+                            <td>${t.title}</td>
+                            <td>${t.recipient || '-'}</td>
+                            <td class="${t.formatted_amount.startsWith('-') ? 'text-danger' : 'text-success'}">${t.formatted_amount}</td>
+                            <td><span class="badge bg-${t.status === 'completed' ? 'success' : 'warning'}">${t.status === 'completed' ? 'Zrealizowany' : 'Oczekujący'}</span></td>
+                        </tr>
+                    `).join('');
+                }
+            });
+    }
+    
+    document.getElementById('refresh-btn').addEventListener('click', () => loadTransactions());
+    loadTransactions();
+});
+</script>
+{% endblock %}

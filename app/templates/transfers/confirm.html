@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block title %}Potwierdzenie przelewu - BugBank{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-arrow-left-right me-2"></i>Potwierdzenie przelewu
+    </h1>
+</div>
+
+<!-- Progress steps -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between position-relative progress-steps">
+            <div class="step completed" data-step="1">
+                <div class="step-circle"><i class="bi bi-check"></i></div>
+                <div class="step-label">Dane przelewu</div>
+            </div>
+            <div class="step active" data-step="2">
+                <div class="step-circle">2</div>
+                <div class="step-label">Potwierdzenie</div>
+            </div>
+            <div class="step" data-step="3">
+                <div class="step-circle">3</div>
+                <div class="step-label">Gotowe</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-warning text-dark">
+                <i class="bi bi-exclamation-triangle me-2"></i>Sprawdź dane przelewu
+            </div>
+            <div class="card-body p-4">
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted">Z konta:</div>
+                    <div class="col-sm-8">
+                        <strong>{{ transfer.from_account_name }}</strong><br>
+                        <code>{{ transfer.from_account_number }}</code>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted">Odbiorca:</div>
+                    <div class="col-sm-8"><strong>{{ transfer.recipient_name }}</strong></div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted">Na konto:</div>
+                    <div class="col-sm-8"><code>{{ transfer.recipient_account }}</code></div>
+                </div>
+                
+                <hr>
+                
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted">Kwota:</div>
+                    <div class="col-sm-8">
+                        <h3 class="text-primary mb-0">{{ "%.2f"|format(transfer.amount) }} {{ transfer.currency }}</h3>
+                    </div>
+                </div>
+                
+                <div class="row mb-3">
+                    <div class="col-sm-4 text-muted">Tytuł:</div>
+                    <div class="col-sm-8">{{ transfer.title }}</div>
+                </div>
+                
+                <hr>
+                
+                <!-- SMS verification -->
+                <div class="alert alert-info">
+                    <i class="bi bi-phone me-2"></i>
+                    Kod SMS został wysłany na numer ****789
+                </div>
+                
+                <form id="confirm-form">
+                    <div class="mb-3">
+                        <label class="form-label">Kod SMS</label>
+                        <input 
+                            type="text" 
+                            class="form-control form-control-lg text-center" 
+                            id="sms_code" 
+                            name="sms_code"
+                            placeholder="000000"
+                            maxlength="6"
+                            required>
+                        <small class="text-muted">Kod testowy: 123456</small>
+                    </div>
+                    
+                    <div id="confirm-error" class="alert alert-danger" style="display: none;"></div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <button type="button" class="btn btn-outline-danger" id="cancel-btn">
+                            <i class="bi bi-x-circle me-2"></i>Anuluj przelew
+                        </button>
+                        <button type="submit" class="btn btn-success" id="{{ generate_random_id('btn_confirm_transfer') }}">
+                            <i class="bi bi-check-circle me-2"></i>Potwierdź i wyślij
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('confirm-form');
+    const errorDiv = document.getElementById('confirm-error');
+    const cancelBtn = document.getElementById('cancel-btn');
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        
+        fetch('{{ url_for("transfers.execute_transfer") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect;
+            } else {
+                errorDiv.textContent = data.error;
+                errorDiv.style.display = 'block';
+            }
+        });
+    });
+    
+    // Cancel with prompt (prompt alert testing)
+    cancelBtn.addEventListener('click', function() {
+        const reason = prompt('Podaj powód anulowania przelewu:');
+        
+        if (reason === null) return; // User clicked Cancel
+        
+        if (!reason.trim()) {
+            alert('Musisz podać powód anulowania.');
+            return;
+        }
+        
+        fetch('{{ url_for("transfers.cancel_transfer") }}', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: 'reason=' + encodeURIComponent(reason)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect;
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

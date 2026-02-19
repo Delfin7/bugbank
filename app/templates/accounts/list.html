@@ -1,0 +1,346 @@
+{% extends "base.html" %}
+
+{% block title %}Konta - BugBank{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-wallet2 me-2"></i>Moje konta
+    </h1>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-3">
+                <label class="form-label">Typ konta</label>
+                <!-- Native select for Select class testing -->
+                <select class="form-select" id="filter-type" name="filter_type">
+                    <option value="">Wszystkie</option>
+                    <option value="checking">Osobiste</option>
+                    <option value="savings">Oszczędnościowe</option>
+                    <option value="business">Firmowe</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Waluta</label>
+                <select class="form-select" id="filter-currency" name="filter_currency">
+                    <option value="">Wszystkie</option>
+                    <option value="PLN">PLN</option>
+                    <option value="EUR">EUR</option>
+                    <option value="USD">USD</option>
+                    <option value="GBP">GBP</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Sortuj po</label>
+                <select class="form-select" id="sort-by" name="sort_by">
+                    <option value="account_name">Nazwa</option>
+                    <option value="balance">Saldo</option>
+                    <option value="created_at">Data utworzenia</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Kolejność</label>
+                <select class="form-select" id="sort-order" name="sort_order">
+                    <option value="asc">Rosnąco</option>
+                    <option value="desc">Malejąco</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Accounts table -->
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover" id="accounts-table">
+                <thead>
+                    <tr>
+                        <th>
+                            <input type="checkbox" class="form-check-input" id="select-all-accounts">
+                        </th>
+                        <th>Nazwa konta</th>
+                        <th>Numer konta</th>
+                        <th>Typ</th>
+                        <th>Saldo</th>
+                        <th>Akcje</th>
+                    </tr>
+                </thead>
+                <tbody id="accounts-tbody">
+                    <!-- Loaded via AJAX -->
+                    <tr>
+                        <td colspan="6" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Ładowanie...</span>
+                            </div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        <nav id="pagination-container" aria-label="Nawigacja stron">
+            <!-- Loaded via AJAX -->
+        </nav>
+    </div>
+</div>
+
+<!-- Context menu (for right-click testing) -->
+<div class="dropdown-menu context-menu" id="account-context-menu">
+    <a class="dropdown-item" href="#" id="ctx-view-details">
+        <i class="bi bi-eye me-2"></i>Zobacz szczegóły
+    </a>
+    <a class="dropdown-item" href="#" id="ctx-transfer">
+        <i class="bi bi-arrow-left-right me-2"></i>Wykonaj przelew
+    </a>
+    <a class="dropdown-item" href="#" id="ctx-copy-number">
+        <i class="bi bi-clipboard me-2"></i>Kopiuj numer konta
+    </a>
+    <div class="dropdown-divider"></div>
+    <a class="dropdown-item" href="#" id="ctx-transactions">
+        <i class="bi bi-clock-history me-2"></i>Historia transakcji
+    </a>
+</div>
+
+<!-- Inline edit modal (for double-click testing) -->
+<div class="modal fade" id="rename-modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Zmień nazwę konta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="rename-account-id">
+                <div class="mb-3">
+                    <label class="form-label">Nowa nazwa</label>
+                    <input type="text" class="form-control" id="rename-account-name" maxlength="64">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Anuluj</button>
+                <button type="button" class="btn btn-primary" id="save-rename-btn">Zapisz</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentPage = 1;
+    let selectedAccountId = null;
+    const contextMenu = document.getElementById('account-context-menu');
+    const renameModal = new bootstrap.Modal(document.getElementById('rename-modal'));
+    
+    // Load accounts
+    function loadAccounts(page = 1) {
+        currentPage = page;
+        const params = new URLSearchParams({
+            page: page,
+            per_page: 5,
+            type: document.getElementById('filter-type').value,
+            currency: document.getElementById('filter-currency').value,
+            sort_by: document.getElementById('sort-by').value,
+            sort_order: document.getElementById('sort-order').value
+        });
+        
+        const tbody = document.getElementById('accounts-tbody');
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </td>
+            </tr>
+        `;
+        
+        fetch('/api/accounts?' + params)
+            .then(response => response.json())
+            .then(data => {
+                if (data.accounts.length === 0) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                Brak kont do wyświetlenia
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    tbody.innerHTML = data.accounts.map(acc => `
+                        <tr class="account-row" data-account-id="${acc.id}">
+                            <td>
+                                <input type="checkbox" class="form-check-input account-checkbox" value="${acc.id}">
+                            </td>
+                            <td>
+                                <span class="account-name" data-account-id="${acc.id}" title="Kliknij dwukrotnie, aby zmienić nazwę">
+                                    ${acc.account_name}
+                                </span>
+                            </td>
+                            <td><code>${acc.account_number}</code></td>
+                            <td>
+                                <span class="badge bg-${acc.account_type === 'checking' ? 'primary' : acc.account_type === 'savings' ? 'success' : 'info'}">
+                                    ${acc.account_type === 'checking' ? 'Osobiste' : acc.account_type === 'savings' ? 'Oszczędnościowe' : 'Firmowe'}
+                                </span>
+                            </td>
+                            <td><strong>${acc.formatted_balance}</strong></td>
+                            <td>
+                                <!-- Dropdown menu that appears on hover -->
+                                <div class="dropdown action-dropdown">
+                                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" 
+                                            type="button" 
+                                            data-bs-toggle="dropdown"
+                                            id="action-btn-${acc.id}">
+                                        Akcje
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="/accounts/${acc.id}">Szczegóły</a></li>
+                                        <li><a class="dropdown-item" href="/transfers/new?from=${acc.id}">Przelew</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('');
+                    
+                    // Attach double-click handlers for renaming
+                    document.querySelectorAll('.account-name').forEach(el => {
+                        el.addEventListener('dblclick', function() {
+                            const accountId = this.dataset.accountId;
+                            const currentName = this.textContent.trim();
+                            document.getElementById('rename-account-id').value = accountId;
+                            document.getElementById('rename-account-name').value = currentName;
+                            renameModal.show();
+                        });
+                    });
+                    
+                    // Attach context menu (right-click)
+                    document.querySelectorAll('.account-row').forEach(row => {
+                        row.addEventListener('contextmenu', function(e) {
+                            e.preventDefault();
+                            selectedAccountId = this.dataset.accountId;
+                            contextMenu.style.display = 'block';
+                            contextMenu.style.left = e.pageX + 'px';
+                            contextMenu.style.top = e.pageY + 'px';
+                        });
+                    });
+                }
+                
+                // Update pagination
+                updatePagination(data.pagination);
+            });
+    }
+    
+    // Pagination
+    function updatePagination(pagination) {
+        const container = document.getElementById('pagination-container');
+        if (pagination.pages <= 1) {
+            container.innerHTML = '';
+            return;
+        }
+        
+        let html = '<ul class="pagination justify-content-center">';
+        
+        // Previous
+        html += `
+            <li class="page-item ${!pagination.has_prev ? 'disabled' : ''}">
+                <a class="page-link" href="#" data-page="${pagination.page - 1}">Poprzednia</a>
+            </li>
+        `;
+        
+        // Pages
+        for (let i = 1; i <= pagination.pages; i++) {
+            html += `
+                <li class="page-item ${pagination.page === i ? 'active' : ''}">
+                    <a class="page-link" href="#" data-page="${i}">${i}</a>
+                </li>
+            `;
+        }
+        
+        // Next
+        html += `
+            <li class="page-item ${!pagination.has_next ? 'disabled' : ''}">
+                <a class="page-link" href="#" data-page="${pagination.page + 1}">Następna</a>
+            </li>
+        `;
+        
+        html += '</ul>';
+        container.innerHTML = html;
+        
+        // Attach click handlers
+        container.querySelectorAll('.page-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const page = parseInt(this.dataset.page);
+                if (page > 0 && page <= pagination.pages) {
+                    loadAccounts(page);
+                }
+            });
+        });
+    }
+    
+    // Filter change handlers
+    ['filter-type', 'filter-currency', 'sort-by', 'sort-order'].forEach(id => {
+        document.getElementById(id).addEventListener('change', () => loadAccounts(1));
+    });
+    
+    // Select all checkbox
+    document.getElementById('select-all-accounts').addEventListener('change', function() {
+        document.querySelectorAll('.account-checkbox').forEach(cb => {
+            cb.checked = this.checked;
+        });
+    });
+    
+    // Hide context menu on click elsewhere
+    document.addEventListener('click', function() {
+        contextMenu.style.display = 'none';
+    });
+    
+    // Context menu actions
+    document.getElementById('ctx-view-details').addEventListener('click', function(e) {
+        e.preventDefault();
+        if (selectedAccountId) window.location.href = '/accounts/' + selectedAccountId;
+    });
+    
+    document.getElementById('ctx-transfer').addEventListener('click', function(e) {
+        e.preventDefault();
+        if (selectedAccountId) window.location.href = '/transfers/new?from=' + selectedAccountId;
+    });
+    
+    document.getElementById('ctx-copy-number').addEventListener('click', function(e) {
+        e.preventDefault();
+        const row = document.querySelector(`[data-account-id="${selectedAccountId}"]`);
+        const number = row.querySelector('code').textContent;
+        navigator.clipboard.writeText(number);
+        alert('Numer konta skopiowany!');
+    });
+    
+    // Save rename
+    document.getElementById('save-rename-btn').addEventListener('click', function() {
+        const accountId = document.getElementById('rename-account-id').value;
+        const newName = document.getElementById('rename-account-name').value;
+        
+        fetch(`/api/accounts/${accountId}/rename`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({name: newName})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renameModal.hide();
+                loadAccounts(currentPage);
+            } else {
+                alert(data.error);
+            }
+        });
+    });
+    
+    // Initial load
+    loadAccounts();
+});
+</script>
+{% endblock %}

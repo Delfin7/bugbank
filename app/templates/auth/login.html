@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Logowanie - BugBank{% endblock %}
+
+{% block auth_content %}
+<div class="row justify-content-center align-items-center min-vh-100">
+    <div class="col-md-5 col-lg-4">
+        <div class="card shadow-lg">
+            <div class="card-body p-5">
+                <div class="text-center mb-4">
+                    <i class="bi bi-bank2 display-4 text-primary"></i>
+                    <h2 class="mt-2">BugBank</h2>
+                    <p class="text-muted">Zaloguj się do swojego konta</p>
+                </div>
+                
+                <!-- Error alert -->
+                <div id="login-error" class="alert alert-danger" style="display: none;"></div>
+                
+                <!-- Login form -->
+                <form id="login-form" method="POST" novalidate>
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Login</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="username" 
+                            name="username" 
+                            placeholder="Wprowadź login"
+                            autocomplete="username"
+                            required
+                            data-testid="username-input">
+                        <div class="invalid-feedback" id="username-error">
+                            Wprowadź login
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Hasło</label>
+                        <div class="input-group">
+                            <input 
+                                type="password" 
+                                class="form-control" 
+                                id="password" 
+                                name="password" 
+                                placeholder="Wprowadź hasło"
+                                autocomplete="current-password"
+                                required
+                                data-testid="password-input">
+                            <button class="btn btn-outline-secondary" type="button" id="toggle-password">
+                                <i class="bi bi-eye" id="toggle-password-icon"></i>
+                            </button>
+                        </div>
+                        <div class="invalid-feedback" id="password-error">
+                            Wprowadź hasło
+                        </div>
+                    </div>
+                    
+                    <!-- Remember me - appears after 2 seconds (delayed element challenge) -->
+                    <div class="mb-3 form-check" id="remember-me-container" style="display: none; opacity: 0;">
+                        <input type="checkbox" class="form-check-input" id="remember_me" name="remember_me">
+                        <label class="form-check-label" for="remember_me">Zapamiętaj mnie</label>
+                    </div>
+                    
+                    <!-- Simple CAPTCHA -->
+                    <div class="mb-3">
+                        <label class="form-label">Weryfikacja: ile to {{ captcha_num1 }} + {{ captcha_num2 }}?</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="captcha_answer" 
+                            name="captcha_answer" 
+                            placeholder="Wprowadź wynik"
+                            required
+                            data-testid="captcha-input">
+                        <div class="invalid-feedback" id="captcha-error">
+                            Wprowadź wynik działania
+                        </div>
+                    </div>
+                    
+                    <!-- Submit button with dynamic ID -->
+                    <button 
+                        type="submit" 
+                        class="btn btn-primary w-100"
+                        id="{{ generate_random_id('btn_login') }}"
+                        data-testid="login-button">
+                        <span id="login-btn-text">Zaloguj się</span>
+                        <span id="login-btn-spinner" class="spinner-border spinner-border-sm ms-2" style="display: none;"></span>
+                    </button>
+                </form>
+                
+                <hr class="my-4">
+                
+                <div class="text-center">
+                    <a href="#" class="text-decoration-none" id="forgot-password-link">Zapomniałeś hasła?</a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Test users info (for development) -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <small class="text-muted">
+                    <strong>Użytkownicy testowi:</strong><br>
+                    standard_user / password123<br>
+                    2fa_user / password123<br>
+                    locked_user / password123
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Locked account modal -->
+<div class="modal fade" id="locked-modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-lock me-2"></i>Konto zablokowane</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Twoje konto zostało zablokowane z powodu zbyt wielu nieudanych prób logowania.</p>
+                <p>Skontaktuj się z obsługą klienta, aby odblokować konto:</p>
+                <ul>
+                    <li>Telefon: 800 123 456</li>
+                    <li>Email: support@bugbank.pl</li>
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Zamknij</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('login-form');
+    const errorAlert = document.getElementById('login-error');
+    const loginBtnText = document.getElementById('login-btn-text');
+    const loginBtnSpinner = document.getElementById('login-btn-spinner');
+    const rememberMeContainer = document.getElementById('remember-me-container');
+    
+    // Show "Remember me" after delay (challenge for waits)
+    setTimeout(function() {
+        rememberMeContainer.style.display = 'block';
+        // Fade in animation
+        setTimeout(function() {
+            rememberMeContainer.style.opacity = '1';
+            rememberMeContainer.style.transition = 'opacity 0.5s';
+        }, 50);
+    }, 2000);
+    
+    // Toggle password visibility
+    document.getElementById('toggle-password').addEventListener('click', function() {
+        const passwordInput = document.getElementById('password');
+        const icon = document.getElementById('toggle-password-icon');
+        
+        if (passwordInput.type === 'password') {
+            passwordInput.type = 'text';
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            passwordInput.type = 'password';
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    });
+    
+    // Form submission via AJAX
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Reset errors
+        errorAlert.style.display = 'none';
+        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        
+        // Client-side validation
+        let hasError = false;
+        const username = document.getElementById('username');
+        const password = document.getElementById('password');
+        const captcha = document.getElementById('captcha_answer');
+        
+        if (!username.value.trim()) {
+            username.classList.add('is-invalid');
+            hasError = true;
+        }
+        
+        if (!password.value) {
+            password.classList.add('is-invalid');
+            hasError = true;
+        }
+        
+        if (!captcha.value.trim()) {
+            captcha.classList.add('is-invalid');
+            hasError = true;
+        }
+        
+        if (hasError) return;
+        
+        // Show loading state
+        loginBtnText.textContent = 'Logowanie...';
+        loginBtnSpinner.style.display = 'inline-block';
+        
+        // Submit via AJAX
+        const formData = new FormData(form);
+        
+        fetch('{{ url_for("auth.login") }}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json().then(data => ({status: response.status, body: data})))
+        .then(({status, body}) => {
+            if (body.success) {
+                window.location.href = body.redirect;
+            } else {
+                // Show error
+                errorAlert.textContent = body.error;
+                errorAlert.style.display = 'block';
+                
+                // Show locked modal if account is locked
+                if (body.locked) {
+                    const lockedModal = new bootstrap.Modal(document.getElementById('locked-modal'));
+                    lockedModal.show();
+                }
+                
+                // Reset button
+                loginBtnText.textContent = 'Zaloguj się';
+                loginBtnSpinner.style.display = 'none';
+            }
+        })
+        .catch(error => {
+            errorAlert.textContent = 'Wystąpił błąd. Spróbuj ponownie.';
+            errorAlert.style.display = 'block';
+            loginBtnText.textContent = 'Zaloguj się';
+            loginBtnSpinner.style.display = 'none';
+        });
+    });
+});
+</script>
+{% endblock %}

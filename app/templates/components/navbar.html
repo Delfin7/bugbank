@@ -1,0 +1,115 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="{{ url_for('dashboard.index') }}">
+            <i class="bi bi-bank2 me-2"></i>BugBank
+        </a>
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <!-- Notifications with dynamic badge -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link position-relative" href="#" id="notifications-dropdown" 
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-bell fs-5"></i>
+                        <span id="notification-badge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display: none;">
+                            <span id="notification-count">0</span>
+                        </span>
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notifications-dropdown">
+                        <li><h6 class="dropdown-header">Powiadomienia</h6></li>
+                        <li id="notifications-list">
+                            <span class="dropdown-item text-muted">Ładowanie...</span>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-center" href="{{ url_for('messages.inbox') }}">Zobacz wszystkie</a></li>
+                    </ul>
+                </li>
+                
+                <!-- User menu -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="user-dropdown" 
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="bi bi-person-circle me-1"></i>
+                        {{ current_user.full_name or current_user.username }}
+                    </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="user-dropdown">
+                        <li><a class="dropdown-item" href="{{ url_for('settings.profile') }}">
+                            <i class="bi bi-gear me-2"></i>Ustawienia
+                        </a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                            <i class="bi bi-box-arrow-right me-2"></i>Wyloguj
+                        </a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- Shadow DOM Notification Widget (challenge!) -->
+<div id="shadow-notification-host"></div>
+
+<script>
+// Create Shadow DOM notification widget
+document.addEventListener('DOMContentLoaded', function() {
+    const host = document.getElementById('shadow-notification-host');
+    if (host && host.attachShadow) {
+        const shadow = host.attachShadow({mode: 'open'});
+        shadow.innerHTML = `
+            <style>
+                .shadow-widget {
+                    position: fixed;
+                    bottom: 80px;
+                    right: 20px;
+                    background: #fff;
+                    border-radius: 8px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                    padding: 10px 15px;
+                    display: none;
+                    z-index: 1000;
+                }
+                .shadow-widget.show {
+                    display: block;
+                }
+                .shadow-widget-title {
+                    font-weight: bold;
+                    color: #333;
+                }
+                .shadow-widget-text {
+                    font-size: 14px;
+                    color: #666;
+                }
+                .shadow-close-btn {
+                    background: none;
+                    border: none;
+                    float: right;
+                    cursor: pointer;
+                    color: #999;
+                }
+            </style>
+            <div class="shadow-widget" id="shadow-notification">
+                <button class="shadow-close-btn" id="shadow-close">×</button>
+                <div class="shadow-widget-title">💡 Wskazówka</div>
+                <div class="shadow-widget-text" id="shadow-message">
+                    Witaj w BugBank! Kliknij tutaj, aby zamknąć.
+                </div>
+            </div>
+        `;
+        
+        // Show after delay
+        setTimeout(() => {
+            shadow.getElementById('shadow-notification').classList.add('show');
+        }, 3000);
+        
+        // Close handler
+        shadow.getElementById('shadow-close').addEventListener('click', () => {
+            shadow.getElementById('shadow-notification').classList.remove('show');
+        });
+    }
+});
+</script>

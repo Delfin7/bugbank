@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}{{ message.subject }} - BugBank{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('messages.inbox') }}">Wiadomości</a></li>
+        <li class="breadcrumb-item active">{{ message.subject[:30] }}...</li>
+    </ol>
+</nav>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <span class="badge bg-{{ 'primary' if message.category == 'info' else 'warning' if message.category == 'alert' else 'success' if message.category == 'promo' else 'danger' }} me-2">
+                {{ 'Info' if message.category == 'info' else 'Alert' if message.category == 'alert' else 'Promocja' if message.category == 'promo' else 'Bezpieczeństwo' }}
+            </span>
+            {% if message.is_important %}
+            <i class="bi bi-star-fill text-warning" title="Ważna wiadomość"></i>
+            {% endif %}
+        </div>
+        <div>
+            <button class="btn btn-sm btn-outline-warning me-2" id="toggle-important-btn" title="Oznacz jako ważne">
+                <i class="bi bi-star{{ '-fill' if message.is_important else '' }}"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger" id="delete-btn" title="Usuń">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <h4 class="card-title">{{ message.subject }}</h4>
+        <p class="text-muted mb-4">
+            <i class="bi bi-person me-1"></i>{{ message.sender }}
+            <span class="mx-2">|</span>
+            <i class="bi bi-calendar me-1"></i>{{ message.created_at.strftime('%d.%m.%Y %H:%M') }}
+        </p>
+        
+        <hr>
+        
+        <div class="message-content">
+            {{ message.content|safe|replace('\n', '<br>') }}
+        </div>
+    </div>
+</div>
+
+<div class="mt-3">
+    <a href="{{ url_for('messages.inbox') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-2"></i>Powrót do listy
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const messageId = {{ message.id }};
+    
+    document.getElementById('toggle-important-btn').addEventListener('click', function() {
+        fetch('/api/messages/' + messageId + '/toggle-important', {method: 'POST'})
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+    });
+    
+    document.getElementById('delete-btn').addEventListener('click', function() {
+        if (confirm('Czy na pewno chcesz usunąć tę wiadomość?')) {
+            fetch('/api/messages/' + messageId + '/delete', {method: 'DELETE'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.href = '{{ url_for("messages.inbox") }}';
+                    }
+                });
+        }
+    });
+});
+</script>
+{% endblock %}

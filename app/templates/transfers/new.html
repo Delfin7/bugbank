@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}Nowy przelew - BugBank{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-arrow-left-right me-2"></i>Nowy przelew
+    </h1>
+</div>
+
+<!-- Progress steps -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between position-relative progress-steps">
+            <div class="step active" data-step="1">
+                <div class="step-circle">1</div>
+                <div class="step-label">Dane przelewu</div>
+            </div>
+            <div class="step" data-step="2">
+                <div class="step-circle">2</div>
+                <div class="step-label">Potwierdzenie</div>
+            </div>
+            <div class="step" data-step="3">
+                <div class="step-circle">3</div>
+                <div class="step-label">Gotowe</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-body p-4">
+                <form id="transfer-form" novalidate>
+                    <!-- From account -->
+                    <div class="mb-4">
+                        <label class="form-label">Konto źródłowe <span class="text-danger">*</span></label>
+                        <select class="form-select" id="from_account" name="from_account" required>
+                            <option value="">Wybierz konto</option>
+                            {% for account in accounts %}
+                            <option value="{{ account.id }}">
+                                {{ account.account_name }} ({{ account.formatted_balance }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <div class="invalid-feedback">Wybierz konto źródłowe</div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Recipient name with autocomplete -->
+                    <div class="mb-3">
+                        <label class="form-label">Nazwa odbiorcy <span class="text-danger">*</span></label>
+                        <div class="position-relative">
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                id="recipient_name" 
+                                name="recipient_name" 
+                                placeholder="Wpisz nazwę odbiorcy"
+                                autocomplete="off"
+                                required>
+                            <div class="autocomplete-dropdown" id="recipient-autocomplete"></div>
+                        </div>
+                        <div class="invalid-feedback">Wprowadź nazwę odbiorcy</div>
+                    </div>
+                    
+                    <!-- Recipient account with IBAN validation -->
+                    <div class="mb-3">
+                        <label class="form-label">Numer konta odbiorcy <span class="text-danger">*</span></label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="recipient_account" 
+                            name="recipient_account" 
+                            placeholder="PL00 0000 0000 0000 0000 0000 0000"
+                            maxlength="32"
+                            required>
+                        <div class="form-text" id="iban-validation-status"></div>
+                        <div class="invalid-feedback">Wprowadź poprawny numer konta</div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <!-- Amount -->
+                    <div class="mb-3">
+                        <label class="form-label">Kwota <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input 
+                                type="text" 
+                                class="form-control" 
+                                id="amount" 
+                                name="amount" 
+                                placeholder="0.00"
+                                required>
+                            <span class="input-group-text">PLN</span>
+                        </div>
+                        <div class="invalid-feedback">Wprowadź poprawną kwotę</div>
+                    </div>
+                    
+                    <!-- Title -->
+                    <div class="mb-3">
+                        <label class="form-label">Tytuł przelewu <span class="text-danger">*</span></label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="title" 
+                            name="title" 
+                            placeholder="Np. Opłata za fakturę"
+                            maxlength="140"
+                            required>
+                        <div class="form-text"><span id="title-length">0</span>/140 znaków</div>
+                        <div class="invalid-feedback">Wprowadź tytuł przelewu</div>
+                    </div>
+                    
+                    <!-- Save recipient checkbox -->
+                    <div class="mb-4 form-check">
+                        <input type="checkbox" class="form-check-input" id="save_recipient" name="save_recipient">
+                        <label class="form-check-label" for="save_recipient">
+                            Zapisz odbiorcę na przyszłość
+                        </label>
+                    </div>
+                    
+                    <!-- Terms link - opens in new window -->
+                    <div class="mb-4">
+                        <small class="text-muted">
+                            Wykonując przelew, akceptujesz 
+                            <a href="{{ url_for('regulations.terms') }}" target="_blank" id="terms-link">
+                                Regulamin przelewów
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        </small>
+                    </div>
+                    
+                    <!-- Error alert -->
+                    <div id="form-errors" class="alert alert-danger" style="display: none;"></div>
+                    
+                    <!-- Buttons -->
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('dashboard.index') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-2"></i>Anuluj
+                        </a>
+                        <button type="submit" class="btn btn-primary" id="{{ generate_random_id('btn_submit_transfer') }}">
+                            Dalej<i class="bi bi-arrow-right ms-2"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('transfer-form');
+    const recipientInput = document.getElementById('recipient_name');
+    const autocomplete = document.getElementById('recipient-autocomplete');
+    const accountInput = document.getElementById('recipient_account');
+    const titleInput = document.getElementById('title');
+    const errorsDiv = document.getElementById('form-errors');
+    
+    let autocompleteTimeout;
+    
+    // Autocomplete for recipient name
+    recipientInput.addEventListener('input', function() {
+        clearTimeout(autocompleteTimeout);
+        const query = this.value.trim();
+        
+        if (query.length < 2) {
+            autocomplete.innerHTML = '';
+            autocomplete.style.display = 'none';
+            return;
+        }
+        
+        autocompleteTimeout = setTimeout(() => {
+            fetch('/api/recipients/search?q=' + encodeURIComponent(query))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.recipients.length === 0) {
+                        autocomplete.style.display = 'none';
+                        return;
+                    }
+                    
+                    autocomplete.innerHTML = data.recipients.map(r => `
+                        <div class="autocomplete-item" data-name="${r.name}" data-account="${r.account_number}">
+                            <strong>${r.name}</strong>
+                            ${r.is_trusted ? '<span class="badge bg-success ms-2">Zaufany</span>' : ''}
+                            <br>
+                            <small class="text-muted">${r.account_number}</small>
+                        </div>
+                    `).join('');
+                    autocomplete.style.display = 'block';
+                    
+                    autocomplete.querySelectorAll('.autocomplete-item').forEach(item => {
+                        item.addEventListener('click', function() {
+                            recipientInput.value = this.dataset.name;
+                            accountInput.value = this.dataset.account;
+                            autocomplete.style.display = 'none';
+                            validateIBAN();
+                        });
+                    });
+                });
+        }, 300);
+    });
+    
+    document.addEventListener('click', function(e) {
+        if (!recipientInput.contains(e.target)) {
+            autocomplete.style.display = 'none';
+        }
+    });
+    
+    accountInput.addEventListener('blur', validateIBAN);
+    
+    function validateIBAN() {
+        const iban = accountInput.value.trim();
+        const status = document.getElementById('iban-validation-status');
+        
+        if (!iban) {
+            status.innerHTML = '';
+            return;
+        }
+        
+        fetch('/api/validate-iban?iban=' + encodeURIComponent(iban))
+            .then(response => response.json())
+            .then(data => {
+                if (data.valid) {
+                    status.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Numer konta poprawny</span>';
+                    accountInput.classList.remove('is-invalid');
+                    if (data.formatted) accountInput.value = data.formatted;
+                } else {
+                    status.innerHTML = '<span class="text-danger"><i class="bi bi-x-circle me-1"></i>' + data.error + '</span>';
+                }
+            });
+    }
+    
+    titleInput.addEventListener('input', function() {
+        document.getElementById('title-length').textContent = this.value.length;
+    });
+    
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        errorsDiv.style.display = 'none';
+        form.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        
+        let isValid = true;
+        ['from_account', 'recipient_name', 'recipient_account', 'amount', 'title'].forEach(id => {
+            const el = document.getElementById(id);
+            if (!el.value.trim()) {
+                el.classList.add('is-invalid');
+                isValid = false;
+            }
+        });
+        
+        if (!isValid) return;
+        
+        const formData = new FormData(form);
+        
+        fetch('{{ url_for("transfers.confirm_transfer") }}', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.href = data.redirect;
+            } else {
+                errorsDiv.innerHTML = data.errors.map(e => `<div>${e}</div>`).join('');
+                errorsDiv.style.display = 'block';
+            }
+        });
+    });
+    
+    // Keyboard shortcut: Ctrl+S
+    document.addEventListener('keydown', function(e) {
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            form.dispatchEvent(new Event('submit'));
+        }
+    });
+});
+</script>
+{% endblock %}

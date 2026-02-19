@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}Karty - BugBank{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-credit-card me-2"></i>Moje karty
+    </h1>
+</div>
+
+<div class="row" id="cards-container">
+    {% for card in cards %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card h-100 card-hover">
+            <div class="card-body">
+                <!-- Card visual -->
+                <div class="credit-card-visual {{ card.card_brand }} {{ 'blocked' if card.is_blocked else '' }} mb-3"
+                     data-card-id="{{ card.id }}">
+                    <div class="card-brand-logo">
+                        {% if card.card_brand == 'visa' %}
+                        <span class="fw-bold text-white">VISA</span>
+                        {% else %}
+                        <span class="fw-bold text-white">MasterCard</span>
+                        {% endif %}
+                    </div>
+                    <div class="card-number" id="card-number-{{ card.id }}">
+                        {{ card.masked_number }}
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <small class="opacity-75">Właściciel</small>
+                            <div>{{ card.card_holder }}</div>
+                        </div>
+                        <div>
+                            <small class="opacity-75">Ważna do</small>
+                            <div>{{ card.expiry_date }}</div>
+                        </div>
+                    </div>
+                    {% if card.is_blocked %}
+                    <div class="blocked-overlay">
+                        <i class="bi bi-lock-fill"></i> ZABLOKOWANA
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Reveal card number button (with animation delay) -->
+                <button class="btn btn-sm btn-outline-primary w-100 mb-3 reveal-card-btn" 
+                        data-card-id="{{ card.id }}"
+                        id="reveal-btn-{{ card.id }}">
+                    <i class="bi bi-eye me-2"></i>Pokaż numer karty
+                </button>
+                
+                <hr>
+                
+                <!-- Card controls -->
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Karta zablokowana</span>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input toggle-block" 
+                                   type="checkbox" 
+                                   data-card-id="{{ card.id }}"
+                                   {{ 'checked' if card.is_blocked else '' }}
+                                   id="block-{{ card.id }}">
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Płatności zbliżeniowe</span>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input toggle-contactless" 
+                                   type="checkbox" 
+                                   data-card-id="{{ card.id }}"
+                                   {{ 'checked' if card.contactless_enabled else '' }}
+                                   id="contactless-{{ card.id }}">
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Płatności internetowe</span>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input toggle-internet" 
+                                   type="checkbox" 
+                                   data-card-id="{{ card.id }}"
+                                   {{ 'checked' if card.internet_enabled else '' }}
+                                   id="internet-{{ card.id }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <hr>
+                
+                <!-- Daily limit slider -->
+                <div class="mb-2">
+                    <label class="form-label d-flex justify-content-between">
+                        <span>Limit dzienny</span>
+                        <strong id="limit-value-{{ card.id }}">{{ card.daily_limit|int }} PLN</strong>
+                    </label>
+                    <input type="range" 
+                           class="form-range limit-slider" 
+                           data-card-id="{{ card.id }}"
+                           min="0" 
+                           max="50000" 
+                           step="500" 
+                           value="{{ card.daily_limit }}"
+                           id="limit-slider-{{ card.id }}">
+                    <div class="d-flex justify-content-between">
+                        <small class="text-muted">0 PLN</small>
+                        <small class="text-muted">50 000 PLN</small>
+                    </div>
+                </div>
+                
+                <small class="text-muted">Konto: {{ card.account.account_name }}</small>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12">
+        <div class="alert alert-info">
+            Nie masz żadnych kart. Skontaktuj się z bankiem, aby zamówić kartę.
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Toast for notifications -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="card-toast" class="toast" role="alert">
+        <div class="toast-header">
+            <i class="bi bi-credit-card me-2"></i>
+            <strong class="me-auto">Karty</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="toast-message"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toast = new bootstrap.Toast(document.getElementById('card-toast'));
+    
+    function showToast(message) {
+        document.getElementById('toast-message').textContent = message;
+        toast.show();
+    }
+    
+    // Reveal card number (with delay)
+    document.querySelectorAll('.reveal-card-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const cardId = this.dataset.cardId;
+            const numberEl = document.getElementById('card-number-' + cardId);
+            
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Ładowanie...';
+            
+            fetch('/api/cards/' + cardId + '/reveal', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Animate reveal
+                        numberEl.style.opacity = '0';
+                        setTimeout(() => {
+                            numberEl.textContent = data.card_number;
+                            numberEl.style.opacity = '1';
+                        }, 300);
+                        
+                        this.innerHTML = '<i class="bi bi-eye-slash me-2"></i>Ukryj numer';
+                        this.classList.remove('btn-outline-primary');
+                        this.classList.add('btn-outline-secondary');
+                    }
+                    this.disabled = false;
+                });
+        });
+    });
+    
+    // Toggle block
+    document.querySelectorAll('.toggle-block').forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const cardId = this.dataset.cardId;
+            fetch('/api/cards/' + cardId + '/toggle-block', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showToast(data.message);
+                        // Refresh to update visual
+                        location.reload();
+                    }
+                });
+        });
+    });
+    
+    // Toggle contactless
+    document.querySelectorAll('.toggle-contactless').forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const cardId = this.dataset.cardId;
+            fetch('/api/cards/' + cardId + '/toggle-contactless', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) showToast(data.message);
+                });
+        });
+    });
+    
+    // Toggle internet
+    document.querySelectorAll('.toggle-internet').forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const cardId = this.dataset.cardId;
+            fetch('/api/cards/' + cardId + '/toggle-internet', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) showToast(data.message);
+                });
+        });
+    });
+    
+    // Limit slider
+    document.querySelectorAll('.limit-slider').forEach(slider => {
+        const cardId = slider.dataset.cardId;
+        const valueEl = document.getElementById('limit-value-' + cardId);
+        
+        slider.addEventListener('input', function() {
+            valueEl.textContent = parseInt(this.value).toLocaleString() + ' PLN';
+        });
+        
+        slider.addEventListener('change', function() {
+            fetch('/api/cards/' + cardId + '/set-limit', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({limit: parseFloat(this.value)})
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) showToast(data.message);
+            });
+        });
+    });
+});
+</script>
+{% endblock %}

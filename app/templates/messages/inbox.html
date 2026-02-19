@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}Wiadomości - BugBank{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pb-2 mb-3 border-bottom">
+    <h1 class="h2">
+        <i class="bi bi-envelope me-2"></i>Wiadomości
+    </h1>
+    <div>
+        <button class="btn btn-sm btn-outline-primary" id="mark-all-read-btn">
+            <i class="bi bi-check2-all me-1"></i>Oznacz wszystkie jako przeczytane
+        </button>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="row mb-3">
+    <div class="col-auto">
+        <select class="form-select form-select-sm" id="filter-category">
+            <option value="">Wszystkie kategorie</option>
+            <option value="info">Informacje</option>
+            <option value="alert">Alerty</option>
+            <option value="promo">Promocje</option>
+            <option value="security">Bezpieczeństwo</option>
+        </select>
+    </div>
+    <div class="col-auto">
+        <div class="form-check">
+            <input type="checkbox" class="form-check-input" id="filter-unread">
+            <label class="form-check-label" for="filter-unread">Tylko nieprzeczytane</label>
+        </div>
+    </div>
+</div>
+
+<!-- Messages list with infinite scroll -->
+<div class="card">
+    <div class="list-group list-group-flush" id="messages-list">
+        <!-- Loaded via AJAX -->
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading indicator for infinite scroll -->
+<div id="loading-more" class="text-center py-3" style="display: none;">
+    <div class="spinner-border spinner-border-sm text-primary"></div>
+    <span class="ms-2">Ładowanie...</span>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentPage = 1;
+    let isLoading = false;
+    let hasMore = true;
+    
+    const messagesList = document.getElementById('messages-list');
+    const loadingMore = document.getElementById('loading-more');
+    
+    function loadMessages(page = 1, append = false) {
+        if (isLoading) return;
+        isLoading = true;
+        
+        const params = new URLSearchParams({
+            page: page,
+            per_page: 10,
+            category: document.getElementById('filter-category').value,
+            unread_only: document.getElementById('filter-unread').checked
+        });
+        
+        if (!append) {
+            messagesList.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>';
+        } else {
+            loadingMore.style.display = 'block';
+        }
+        
+        fetch('/api/messages?' + params)
+            .then(response => response.json())
+            .then(data => {
+                if (!append) {
+                    messagesList.innerHTML = '';
+                }
+                
+                if (data.messages.length === 0 && !append) {
+                    messagesList.innerHTML = '<div class="list-group-item text-center text-muted py-4">Brak wiadomości</div>';
+                } else {
+                    data.messages.forEach(msg => {
+                        const item = document.createElement('a');
+                        item.href = '/messages/' + msg.id;
+                        item.className = 'list-group-item list-group-item-action' + (!msg.is_read ? ' fw-bold bg-light' : '');
+                        item.innerHTML = `
+                            <div class="d-flex w-100 justify-content-between">
+                                <div>
+                                    ${msg.is_important ? '<i class="bi bi-star-fill text-warning me-2"></i>' : ''}
+                                    <span class="badge bg-${getCategoryColor(msg.category)} me-2">${getCategoryLabel(msg.category)}</span>
+                                    ${msg.subject}
+                                </div>
+                                <small class="text-muted">${msg.date}</small>
+                            </div>
+                            <small class="text-muted">${msg.preview}</small>
+                        `;
+                        messagesList.appendChild(item);
+                    });
+                }
+                
+                hasMore = data.pagination.has_next;
+                currentPage = data.pagination.page;
+                isLoading = false;
+                loadingMore.style.display = 'none';
+            });
+    }
+    
+    function getCategoryColor(category) {
+        const colors = {info: 'primary', alert: 'warning', promo: 'success', security: 'danger'};
+        return colors[category] || 'secondary';
+    }
+    
+    function getCategoryLabel(category) {
+        const labels = {info: 'Info', alert: 'Alert', promo: 'Promocja', security: 'Bezpieczeństwo'};
+        return labels[category] || category;
+    }
+    
+    // Infinite scroll
+    window.addEventListener('scroll', function() {
+        if (isLoading || !hasMore) return;
+        
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+            loadMessages(currentPage + 1, true);
+        }
+    });
+    
+    // Filter handlers
+    document.getElementById('filter-category').addEventListener('change', () => {
+        currentPage = 1;
+        hasMore = true;
+        loadMessages(1);
+    });
+    
+    document.getElementById('filter-unread').addEventListener('change', () => {
+        currentPage = 1;
+        hasMore = true;
+        loadMessages(1);
+    });
+    
+    // Mark all read
+    document.getElementById('mark-all-read-btn').addEventListener('click', function() {
+        if (confirm('Czy na pewno chcesz oznaczyć wszystkie wiadomości jako przeczytane?')) {
+            fetch('/api/messages/mark-all-read', {method: 'POST'})
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadMessages(1);
+                    }
+                });
+        }
+    });
+    
+    // Initial load
+    loadMessages();
+});
+</script>
+{% endblock %}
